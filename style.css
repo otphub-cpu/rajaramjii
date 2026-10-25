@@ -1,0 +1,1669 @@
+/* ==========================================================================
+   WINDOWS 12 MOBILE EDITION — TELEMETRY & C2 COMMAND FLIGHT DECK
+   Mobile-First Architecture, Mica/Acrylic Glassmorphism, 60fps Spring Physics
+   ========================================================================== */
+
+:root {
+    /* Windows 12 Core Mica Canvas */
+    --win12-bg: #070b14;
+    --win12-surface: rgba(14, 20, 36, 0.78);
+    --win12-surface-high: rgba(20, 28, 50, 0.9);
+    --win12-card: rgba(255, 255, 255, 0.045);
+    --win12-card-hover: rgba(255, 255, 255, 0.08);
+    --win12-border: rgba(255, 255, 255, 0.1);
+    --win12-border-light: rgba(255, 255, 255, 0.16);
+
+    /* Telemetry Accents (Defaults to Master) */
+    --orbit-accent: #f59e0b;
+    --orbit-secondary: #f97316;
+    --orbit-glow: rgba(245, 158, 11, 0.4);
+    --orbit-badge-bg: rgba(245, 158, 11, 0.15);
+    --orbit-badge-text: #fbbf24;
+
+    /* Signal Indicators */
+    --sat-green: #10b981;
+    --sat-green-glow: rgba(16, 185, 129, 0.45);
+    --sat-red: #f43f5e;
+    --sat-red-glow: rgba(244, 63, 94, 0.45);
+    --sat-amber: #f59e0b;
+
+    /* Typography */
+    --font-ui: 'Segoe UI Variable Text', -apple-system, BlinkMacSystemFont, 'Outfit', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+    --text: #f8fafc;
+    --text-2: #94a3b8;
+    --text-3: #64748b;
+
+    /* Spring Physics */
+    --spring: cubic-bezier(0.16, 1, 0.3, 1);
+    --spring-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --trans-fast: 0.16s var(--spring);
+    --trans-mid: 0.28s var(--spring);
+    --trans-slow: 0.42s var(--spring);
+}
+
+/* ==========================================================================
+   DYNAMIC SERVER THEME REACTIVITY
+   ========================================================================== */
+/* SERVER MASTER 👑: Imperial Gold & Solar Flare */
+body[data-planet="master"], body[data-planet="venus"] {
+    --orbit-accent: #f59e0b;
+    --orbit-secondary: #f97316;
+    --orbit-glow: rgba(245, 158, 11, 0.4);
+    --orbit-badge-bg: rgba(245, 158, 11, 0.16);
+    --orbit-badge-text: #fbbf24;
+}
+
+/* SERVER BLASTER 💥: Cyber Cyan & Plasma Neon */
+body[data-planet="blaster"], body[data-planet="earth"], body[data-planet="mercury"] {
+    --orbit-accent: #00d4ff;
+    --orbit-secondary: #0066ff;
+    --orbit-glow: rgba(0, 212, 255, 0.4);
+    --orbit-badge-bg: rgba(0, 212, 255, 0.16);
+    --orbit-badge-text: #38bdf8;
+}
+
+/* SERVER DON 🔱: Crimson Ruby & Radiant Rose */
+body[data-planet="don"], body[data-planet="mars"] {
+    --orbit-accent: #f43f5e;
+    --orbit-secondary: #e11d48;
+    --orbit-glow: rgba(244, 63, 94, 0.4);
+    --orbit-badge-bg: rgba(244, 63, 94, 0.16);
+    --orbit-badge-text: #fb7185;
+}
+
+/* ==========================================================================
+   GLOBAL MOBILE RESETS & VIEWPORT FIT
+   ========================================================================== */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    margin: 0;
+    padding: 0;
+    background: var(--win12-bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    overflow: hidden;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+input, button, select, textarea {
+    font-family: inherit;
+    outline: none;
+}
+
+/* ==========================================================================
+   WINDOWS 12 AMBIENT AURORA CANVAS
+   ========================================================================== */
+.win12-desktop-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 15%, #0e172e 0%, #060913 75%, #020409 100%);
+}
+
+.win12-aurora {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.42;
+    will-change: transform;
+    animation: floatAuroraMobile 16s ease-in-out infinite alternate;
+}
+
+.aurora-1 {
+    top: -10%;
+    left: 10%;
+    width: 70vw;
+    height: 70vw;
+    background: radial-gradient(circle, var(--orbit-glow) 0%, transparent 70%);
+}
+
+.aurora-2 {
+    bottom: -15%;
+    right: 5%;
+    width: 75vw;
+    height: 75vw;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.3) 0%, transparent 70%);
+    animation-duration: 22s;
+    animation-delay: -5s;
+}
+
+.aurora-3 {
+    top: 35%;
+    left: 30%;
+    width: 60vw;
+    height: 60vw;
+    background: radial-gradient(circle, rgba(0, 212, 255, 0.22) 0%, transparent 70%);
+    animation-duration: 18s;
+    animation-delay: -9s;
+}
+
+@keyframes floatAuroraMobile {
+    0% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(20px, 30px, 0) scale(1.08); }
+    100% { transform: translate3d(-20px, -20px, 0) scale(0.94); }
+}
+
+/* ==========================================================================
+   WINDOWS 12 MOBILE TOP SYSTEM BAR
+   ========================================================================== */
+.win12-top-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: calc(52px + env(safe-area-inset-top, 0px));
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-left: 12px;
+    padding-right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(8, 12, 22, 0.88);
+    backdrop-filter: blur(28px) saturate(200%);
+    -webkit-backdrop-filter: blur(28px) saturate(200%);
+    border-bottom: 1px solid var(--win12-border);
+    z-index: 100;
+}
+
+.win12-top-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.win12-brand-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    cursor: pointer;
+    transition: var(--trans-fast);
+}
+
+.win12-brand-pill:active {
+    transform: scale(0.92);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--sat-green);
+    box-shadow: 0 0 8px var(--sat-green);
+    transition: var(--trans-fast);
+}
+
+.status-dot.loading {
+    background: #00d4ff;
+    box-shadow: 0 0 10px #00d4ff;
+    animation: pulseDot 1s infinite alternate;
+}
+
+.status-dot.error {
+    background: var(--sat-red);
+    box-shadow: 0 0 10px var(--sat-red);
+}
+
+@keyframes pulseDot {
+    0% { transform: scale(0.85); opacity: 0.6; }
+    100% { transform: scale(1.25); opacity: 1; }
+}
+
+.status-text-mobile {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 90px;
+}
+
+.win12-top-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    margin: 0 6px;
+    min-width: 0;
+}
+
+.win12-server-switcher-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: var(--text);
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    transition: var(--trans-fast);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 175px;
+}
+
+.win12-server-switcher-pill:active {
+    transform: scale(0.94);
+    background: rgba(255, 255, 255, 0.15);
+    border-color: var(--orbit-accent);
+}
+
+.server-active-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--orbit-accent);
+    box-shadow: 0 0 8px var(--orbit-accent);
+    flex-shrink: 0;
+}
+
+.server-pill-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.win12-top-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.header-time {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-2);
+}
+
+.win12-quick-lock-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-2);
+    cursor: pointer;
+    transition: var(--trans-fast);
+}
+
+.win12-quick-lock-btn:active {
+    transform: scale(0.88);
+    background: rgba(244, 63, 94, 0.25);
+    color: #f43f5e;
+    border-color: #f43f5e;
+}
+
+/* ==========================================================================
+   APPLICATION CONTAINER & CONTENT VIEWPORT
+   ========================================================================== */
+.win12-app-container {
+    position: fixed;
+    top: calc(52px + env(safe-area-inset-top, 0px));
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+}
+
+.win12-window {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: transparent;
+    overflow: hidden;
+}
+
+.main-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px 12px calc(86px + env(safe-area-inset-bottom, 12px)) 12px;
+    overscroll-behavior-y: contain;
+    scroll-behavior: smooth;
+}
+
+/* Smooth Tab Panel Transitions */
+.tab-panel {
+    display: none;
+    opacity: 0;
+}
+
+.tab-panel.active {
+    display: block;
+    animation: win12TabIn 0.26s var(--spring) forwards;
+}
+
+@keyframes win12TabIn {
+    0% {
+        opacity: 0;
+        transform: translateY(12px) scale(0.985);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ==========================================================================
+   MICRO STATS GRID (SMARTPHONE 3-COLUMN)
+   ========================================================================== */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.stat-chip {
+    padding: 10px 6px;
+    border-radius: 14px;
+    background: var(--win12-card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--win12-border);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.stat-glow-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2.5px;
+}
+
+.stat-suspects .stat-glow-bar {
+    background: linear-gradient(90deg, #3b82f6, var(--orbit-accent));
+}
+
+.stat-green .stat-glow-bar {
+    background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.stat-red .stat-glow-bar {
+    background: linear-gradient(90deg, #f43f5e, #fb7185);
+}
+
+.stat-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.stat-icon-wrap {
+    font-size: 1rem;
+    line-height: 1;
+    margin-bottom: 2px;
+}
+
+.stat-value {
+    font-size: 1.28rem;
+    font-weight: 800;
+    font-family: var(--font-mono);
+    line-height: 1.1;
+    color: var(--text);
+}
+
+.stat-suspects .stat-value { color: var(--orbit-accent); }
+.stat-green .stat-value { color: var(--sat-green); }
+.stat-red .stat-value { color: #f87171; }
+
+.stat-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--text-2);
+}
+
+/* ==========================================================================
+   SEARCH BOX & SEGMENTED FILTER PILLS
+   ========================================================================== */
+.search-box {
+    position: relative;
+    margin-bottom: 10px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-2);
+    pointer-events: none;
+}
+
+.search-input {
+    width: 100%;
+    height: 44px;
+    padding: 0 14px 0 40px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--win12-border);
+    color: var(--text);
+    font-size: 16px; /* Prevents auto zoom on mobile browsers */
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: var(--trans-fast);
+}
+
+.search-input:focus {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: var(--orbit-accent);
+    box-shadow: 0 0 14px var(--orbit-glow);
+}
+
+.search-input::placeholder {
+    color: var(--text-3);
+    font-size: 0.82rem;
+}
+
+.filter-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.filter-row .pill {
+    flex: 1;
+    min-height: 38px;
+    border-radius: 12px;
+    border: 1px solid var(--win12-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-2);
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--trans-fast);
+    padding: 0 6px;
+}
+
+.filter-row .pill:active {
+    transform: scale(0.95);
+}
+
+.filter-row .pill.active {
+    background: var(--orbit-badge-bg);
+    color: var(--orbit-badge-text);
+    border-color: var(--orbit-accent);
+    box-shadow: 0 0 12px var(--orbit-glow);
+}
+
+/* ==========================================================================
+   MOBILE ACTION BUTTONS & GRID
+   ========================================================================== */
+.action-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.action-btn {
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: var(--trans-fast);
+    min-height: 46px;
+}
+
+.action-btn:active {
+    transform: scale(0.97);
+}
+
+.action-primary {
+    background: linear-gradient(135deg, var(--orbit-accent) 0%, var(--orbit-secondary) 100%);
+    color: #070b14;
+    font-weight: 800;
+    box-shadow: 0 6px 20px var(--orbit-glow);
+}
+
+.action-primary:active {
+    box-shadow: 0 2px 10px var(--orbit-glow);
+}
+
+.action-sub-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+
+.action-sub-grid .action-btn {
+    min-height: 38px;
+    font-size: 0.72rem;
+    border-radius: 10px;
+}
+
+.action-glass {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--win12-border);
+    color: var(--text-2);
+}
+
+.action-glass:active {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text);
+}
+
+.action-danger {
+    background: rgba(244, 63, 94, 0.16);
+    border: 1px solid rgba(244, 63, 94, 0.35);
+    color: #fb7185;
+}
+
+.action-danger:active {
+    background: rgba(244, 63, 94, 0.3);
+}
+
+.action-success {
+    background: rgba(16, 185, 129, 0.16);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    color: #34d399;
+}
+
+.action-success:active {
+    background: rgba(16, 185, 129, 0.3);
+}
+
+/* ==========================================================================
+   DEVICE CARDS (MOBILE OPTIMIZED TOUCH CARDS)
+   ========================================================================== */
+.device-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.device-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: var(--win12-card);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--win12-border);
+    border-left: 3.5px solid var(--orbit-accent);
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    transition: transform 0.16s var(--spring), background 0.16s var(--spring);
+}
+
+.device-card:active {
+    transform: scale(0.98);
+    background: var(--win12-card-hover);
+}
+
+.device-card.muted-card {
+    border-left-color: #64748b;
+    opacity: 0.65;
+}
+
+.dc-check {
+    width: 22px;
+    height: 22px;
+    accent-color: var(--orbit-accent);
+    cursor: pointer;
+    flex-shrink: 0;
+    margin: 0;
+}
+
+.dc-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--orbit-accent);
+    flex-shrink: 0;
+}
+
+.dc-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.dc-id {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dc-model {
+    font-size: 0.74rem;
+    color: var(--text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+
+.dc-status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.status-dot-inline {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.status-dot-inline.online {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-dot-inline.offline {
+    background: rgba(244, 63, 94, 0.15);
+    color: #fb7185;
+    border: 1px solid rgba(244, 63, 94, 0.3);
+}
+
+.mute-badge {
+    font-size: 0.6rem;
+    font-weight: 800;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+/* ==========================================================================
+   SMS FEED CARDS (INTERCEPTS)
+   ========================================================================== */
+.panel-hero-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 10px;
+}
+
+.panel-hero-info h2 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.panel-hero-info p {
+    margin: 2px 0 0 0;
+    font-size: 0.74rem;
+    color: var(--text-2);
+}
+
+.action-btn-compact {
+    min-height: 36px;
+    padding: 0 12px;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+
+.sms-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.sms-card {
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: var(--win12-card);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--win12-border);
+    border-left: 3.5px solid var(--sat-green);
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    transition: transform 0.16s var(--spring), background 0.16s var(--spring);
+}
+
+.sms-card:active {
+    transform: scale(0.98);
+    background: var(--win12-card-hover);
+}
+
+.sms-card.selected {
+    border-color: var(--orbit-accent);
+    box-shadow: 0 0 16px var(--orbit-glow);
+}
+
+.sms-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.sms-card-sender {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--orbit-accent);
+}
+
+.sms-card-time {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-3);
+}
+
+.sms-card-device {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-2);
+    margin-bottom: 6px;
+}
+
+.sms-card-body {
+    font-size: 0.86rem;
+    line-height: 1.42;
+    color: var(--text);
+    word-break: break-word;
+}
+
+/* ==========================================================================
+   PAGINATION CONTROLS
+   ========================================================================== */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px 0;
+}
+
+.page-btn {
+    min-height: 36px;
+    padding: 0 16px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--win12-border);
+    color: var(--text);
+    font-size: 0.76rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--trans-fast);
+}
+
+.page-btn:active:not(:disabled) {
+    transform: scale(0.92);
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.page-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.page-info {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-2);
+}
+
+/* ==========================================================================
+   SWARM BOMBER (INJECTOR) VIEW
+   ========================================================================== */
+.win12-card {
+    padding: 14px;
+    border-radius: 18px;
+    background: var(--win12-card);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+    border: 1px solid var(--win12-border);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    margin-bottom: 12px;
+}
+
+.card-header-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.card-header-badge {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    color: var(--orbit-accent);
+}
+
+.form-group {
+    margin-bottom: 12px;
+}
+
+.form-label {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--text-2);
+    margin-bottom: 6px;
+}
+
+.mobile-input, .mobile-select {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--win12-border);
+    color: var(--text);
+    font-size: 16px !important; /* Prevents auto zoom */
+    box-sizing: border-box;
+    transition: var(--trans-fast);
+}
+
+.mobile-input:focus, .mobile-select:focus {
+    border-color: var(--orbit-accent);
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 12px var(--orbit-glow);
+}
+
+.char-counter {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-3);
+    margin-top: 4px;
+}
+
+.sim-toggle {
+    display: flex;
+    gap: 6px;
+}
+
+.sim-btn {
+    flex: 1;
+    min-height: 42px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--win12-border);
+    color: var(--text-2);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--trans-fast);
+}
+
+.sim-btn:active {
+    transform: scale(0.95);
+}
+
+.sim-btn.active {
+    background: var(--orbit-accent);
+    color: #070b14;
+    border-color: var(--orbit-accent);
+    font-weight: 800;
+    box-shadow: 0 0 14px var(--orbit-glow);
+}
+
+.bomber-stepper-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.stepper-box {
+    background: rgba(0, 0, 0, 0.25);
+    padding: 10px;
+    border-radius: 14px;
+    border: 1px solid var(--win12-border);
+}
+
+.stepper-input {
+    width: 100%;
+    height: 38px;
+    text-align: center;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 1.15rem;
+    font-weight: 800;
+}
+
+.stepper-btn-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.step-btn {
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--win12-border);
+    color: var(--text);
+    font-size: 0.7rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--trans-fast);
+}
+
+.step-btn:active {
+    transform: scale(0.9);
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.bomber-status-header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.bomber-stats-pills {
+    display: flex;
+    gap: 6px;
+}
+
+.badge-pill {
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--win12-border);
+    color: var(--text-2);
+}
+
+.badge-pill strong {
+    color: var(--text);
+}
+
+.stat-sent strong { color: var(--sat-green); }
+.stat-fail strong { color: var(--sat-red); }
+
+.bomber-progress-bar {
+    width: 100%;
+    height: 8px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.bomber-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--orbit-accent), var(--orbit-secondary));
+    border-radius: 9999px;
+    transition: width 0.2s ease;
+}
+
+.bomber-progress-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: var(--text-2);
+    margin-top: 4px;
+    font-family: var(--font-mono);
+}
+
+.bomber-console-box {
+    max-height: 160px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 12px;
+    padding: 10px;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    line-height: 1.4;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ==========================================================================
+   WINDOWS 12 MOBILE FLOATING TASKBAR DOCK
+   ========================================================================== */
+.win12-taskbar {
+    position: fixed;
+    bottom: calc(10px + env(safe-area-inset-bottom, 8px));
+    left: 10px;
+    right: 10px;
+    max-width: 440px;
+    margin: 0 auto;
+    height: 60px;
+    padding: 0 6px;
+    background: rgba(10, 16, 30, 0.92);
+    backdrop-filter: blur(40px) saturate(220%);
+    -webkit-backdrop-filter: blur(40px) saturate(220%);
+    border: 1px solid var(--win12-border-light);
+    border-radius: 34px;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.75), 0 0 24px var(--orbit-glow);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 1000;
+}
+
+.win12-start-trigger {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.16s var(--spring);
+}
+
+.win12-start-trigger:active {
+    transform: scale(0.9);
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.win12-taskbar-divider {
+    width: 1px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.12);
+    margin: 0 4px;
+}
+
+.win12-taskbar-apps {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    justify-content: space-around;
+    gap: 2px;
+}
+
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 6px;
+    border-radius: 14px;
+    background: transparent;
+    border: none;
+    color: var(--text-2);
+    cursor: pointer;
+    position: relative;
+    transition: all 0.16s var(--spring);
+    flex: 1;
+    min-height: 48px;
+}
+
+.nav-item:active {
+    transform: scale(0.9);
+}
+
+.nav-item.active {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.nav-item span {
+    font-size: 0.68rem;
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+.nav-icon-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-badge {
+    position: absolute;
+    top: -5px;
+    right: -10px;
+    padding: 1px 5px;
+    border-radius: 10px;
+    font-size: 0.62rem;
+    font-weight: 800;
+    background: var(--sat-red);
+    color: #fff;
+    box-shadow: 0 0 8px var(--sat-red-glow);
+}
+
+.nav-active-pip {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--orbit-accent);
+    box-shadow: 0 0 6px var(--orbit-accent);
+    margin-top: 2px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.nav-item.active .nav-active-pip {
+    opacity: 1;
+}
+
+.win12-quick-action-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--orbit-accent);
+    color: #070b14;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.16s var(--spring);
+    box-shadow: 0 0 12px var(--orbit-glow);
+}
+
+.win12-quick-action-btn:active {
+    transform: scale(0.9);
+}
+
+/* ==========================================================================
+   START MENU ACTION SHEET (GATEWAY SELECTOR)
+   ========================================================================== */
+.server-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: flex-end; /* Slides up from bottom on mobile */
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.24s var(--spring), visibility 0.24s var(--spring);
+}
+
+.server-modal.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.win12-start-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.68);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+
+.win12-start-flyout {
+    position: relative;
+    width: 100%;
+    max-height: 85dvh;
+    border-radius: 26px 26px 0 0;
+    background: rgba(14, 20, 36, 0.96);
+    backdrop-filter: blur(50px) saturate(220%);
+    -webkit-backdrop-filter: blur(50px) saturate(220%);
+    border: 1px solid var(--win12-border-light);
+    border-bottom: none;
+    box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.8);
+    padding: 14px 16px calc(24px + env(safe-area-inset-bottom, 12px)) 16px;
+    overflow-y: auto;
+    transform: translateY(0);
+    transition: transform 0.3s var(--spring);
+    z-index: 1;
+}
+
+.server-modal.hidden .win12-start-flyout {
+    transform: translateY(100%);
+}
+
+.sheet-handle {
+    width: 44px;
+    height: 4.5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.3);
+    margin: 0 auto 12px auto;
+    cursor: pointer;
+}
+
+.win12-start-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.win12-user-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.win12-user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--orbit-badge-bg);
+    border: 1px solid var(--orbit-accent);
+    color: var(--orbit-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+}
+
+.win12-user-name {
+    display: block;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.win12-user-sub {
+    font-size: 0.7rem;
+    color: var(--text-2);
+}
+
+.win12-modal-close-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--win12-border);
+    color: var(--text-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--trans-fast);
+}
+
+.win12-modal-close-btn:active {
+    transform: scale(0.9);
+}
+
+.win12-pinned-label {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    color: var(--text-3);
+    margin-bottom: 8px;
+}
+
+.server-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.server-btn {
+    width: 100%;
+    min-height: 62px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--win12-border);
+    cursor: pointer;
+    transition: var(--trans-fast);
+    text-align: left;
+}
+
+.server-btn:active {
+    transform: scale(0.98);
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.server-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.icon-gold {
+    background: rgba(245, 158, 11, 0.18);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.icon-cyan {
+    background: rgba(0, 212, 255, 0.18);
+    border: 1px solid rgba(0, 212, 255, 0.35);
+}
+
+.icon-red {
+    background: rgba(244, 63, 94, 0.18);
+    border: 1px solid rgba(244, 63, 94, 0.35);
+}
+
+.server-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.server-name {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.server-sub {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    margin-top: 2px;
+}
+
+.server-status-pill {
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+}
+
+.server-status-pill.online {
+    background: rgba(16, 185, 129, 0.16);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.server-arrow {
+    color: var(--text-3);
+    font-size: 1.1rem;
+}
+
+.win12-start-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.win12-sys-spec {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-3);
+}
+
+.win12-power-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 10px;
+    background: rgba(244, 63, 94, 0.16);
+    border: 1px solid rgba(244, 63, 94, 0.3);
+    color: #fb7185;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--trans-fast);
+}
+
+.win12-power-btn:active {
+    transform: scale(0.92);
+}
+
+/* ==========================================================================
+   NODE INFILTRATION FLYOUT / BOTTOM SHEET
+   ========================================================================== */
+.sheet-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: flex-end;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.26s var(--spring);
+}
+
+.sheet-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.68);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+
+.sheet-container {
+    position: relative;
+    width: 100%;
+    max-height: 88dvh;
+    border-radius: 26px 26px 0 0;
+    background: rgba(14, 20, 36, 0.96);
+    backdrop-filter: blur(50px) saturate(220%);
+    -webkit-backdrop-filter: blur(50px) saturate(220%);
+    border: 1px solid var(--win12-border-light);
+    border-bottom: none;
+    box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.8);
+    padding: 14px 16px calc(24px + env(safe-area-inset-bottom, 12px)) 16px;
+    overflow-y: auto;
+    transform: translateY(100%);
+    transition: transform 0.32s var(--spring);
+    z-index: 1;
+}
+
+.sheet-overlay.active .sheet-container {
+    transform: translateY(0);
+}
+
+.sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.win12-sheet-title-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.win12-sheet-icon {
+    font-size: 1.4rem;
+}
+
+.sheet-header h2 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.sheet-device-id {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--orbit-accent);
+}
+
+.sheet-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--win12-border);
+    color: var(--text-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--trans-fast);
+}
+
+.sheet-close:active {
+    transform: scale(0.9);
+}
+
+.sheet-info {
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: var(--text-2);
+    background: rgba(0, 0, 0, 0.25);
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid var(--win12-border);
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-bottom: 12px;
+}
+
+.sheet-section {
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sheet-section h3 {
+    margin: 0 0 8px 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-2);
+}
+
+.sheet-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.section-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    top: calc(60px + env(safe-area-inset-top, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+    width: calc(100% - 28px);
+    max-width: 380px;
+}
+
+.toast {
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: rgba(14, 20, 36, 0.95);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--win12-border-light);
+    color: var(--text);
+    font-size: 0.78rem;
+    font-weight: 600;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    animation: toastIn 0.25s var(--spring) forwards;
+}
+
+@keyframes toastIn {
+    0% { opacity: 0; transform: translateY(-10px) scale(0.95); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.toast.success { border-left: 3.5px solid var(--sat-green); }
+.toast.error { border-left: 3.5px solid var(--sat-red); }
+.toast.info { border-left: 3.5px solid var(--orbit-accent); }
+
+/* Empty States */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 16px;
+    text-align: center;
+    color: var(--text-2);
+}
+
+.empty-planet-icon {
+    font-size: 2.2rem;
+    margin-bottom: 8px;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.empty-state span {
+    font-size: 0.76rem;
+    color: var(--text-3);
+    margin-top: 4px;
+}
