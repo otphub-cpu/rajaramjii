@@ -59,8 +59,118 @@ const state = {
     filteredDevices: [],
     devicePageIndex: 0,
     devicePageSize: 40,
-    searchDebounceTimer: null,
+    // SMS Filtering & Search
+    smsFilter: 'all',
+    smsSearchQuery: '',
+    smsSearchDebounceTimer: null,
 };
+
+// ---- OTP & Clipboard Helpers ----
+function extractOtp(text) {
+    if (!text || typeof text !== 'string') return null;
+    
+    // Pattern 1: Keywords like OTP, code, verification, PIN, passcode followed by 4-8 digits
+    const m1 = text.match(/(?:otp|code|verification|passcode|pin|secret|one[- ]?time)[^0-9a-zA-Z]{0,25}[:\s-]*([0-9]{4,8})\b/i);
+    if (m1 && m1[1]) return m1[1];
+    
+    // Pattern 2: Digits followed by keywords "is your OTP", "is your verification code", etc.
+    const m2 = text.match(/\b([0-9]{4,8})\b[^0-9a-zA-Z]{0,25}(?:is your|as your|for|to verify|verification|otp)/i);
+    if (m2 && m2[1]) return m2[1];
+
+    // Pattern 3: If SMS has strong banking/auth keywords, look for isolated 4-8 digit number
+    if (/(?:otp|verify|bank|auth|password|crd|debit|credit|login|secure|txn|transaction|account)/i.test(text)) {
+        const allDigits = text.match(/\b\d{4,8}\b/g);
+        if (allDigits) {
+            for (const d of allDigits) {
+                // Ignore years like 2024-2029 if length 4
+                if (d.length === 4 && (d.startsWith('202') || d.startsWith('199'))) continue;
+                return d;
+            }
+        }
+    }
+    return null;
+}
+
+function copyTextToClipboard(text, label = 'Copied') {
+    if (!text) return;
+    
+    // Smartphone tactile haptic vibration
+    if (navigator.vibrate) {
+        try { navigator.vibrate(45); } catch(e) {}
+    }
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast(`${label} copied! ✓`, 'success');
+        }).catch(() => {
+            fallbackCopy(text, label);
+        });
+    } else {
+        fallbackCopy(text, label);
+    }
+}
+
+function fallbackCopy(text, label) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    ta.style.top = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+        document.execCommand('copy');
+        showToast(`${label} copied! ✓`, 'success');
+    } catch(e) {
+        showToast('Could not copy', 'error');
+    }
+    document.body.removeChild(ta);
+}
+
+function copyOtp(otp, btn, event) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    copyTextToClipboard(otp, `OTP [${otp}]`);
+    if (btn) {
+        const origHtml = btn.innerHTML;
+        btn.classList.add('copied');
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> COPIED!`;
+        setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.innerHTML = origHtml;
+        }, 2200);
+    }
+}
+
+function copyFullSms(text, event) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    copyTextToClipboard(text, 'Full SMS Message');
+}
+
+function setSmsFilter(filterType) {
+    state.smsFilter = filterType;
+    const btnAll = document.getElementById('smsFilterAll');
+    const btnOtp = document.getElementById('smsFilterOtp');
+    if (btnAll) btnAll.classList.toggle('active', filterType === 'all');
+    if (btnOtp) btnOtp.classList.toggle('active', filterType === 'otp');
+    state.smsPageIndex = 0;
+    renderSmsPage();
+}
+
+function onSmsSearchInput() {
+    if (state.smsSearchDebounceTimer) clearTimeout(state.smsSearchDebounceTimer);
+    state.smsSearchDebounceTimer = setTimeout(() => {
+        state.smsSearchQuery = (document.getElementById('smsSearch')?.value || '').toLowerCase().trim();
+        state.smsPageIndex = 0;
+        renderSmsPage();
+    }, 180);
+}
 
 // ---- Init ----
 document.addEventListener('DOMContentLoaded', () => {
@@ -100,14 +210,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // fetchDevices();
 });
 const PLANET_INFO = {
-    master: { flag: '👑', sector: '0x01 // YARAKENAME RTDB', title: 'SERVER MASTER' },
-    blaster: { flag: '💥', sector: '0x02 // SK-PENAL RTDB', title: 'SERVER BLASTER' },
-    don: { flag: '🔱', sector: '0x03 // KOLKATAMAN-D5B54 RTDB', title: 'SERVER DON' },
+    hinata: { flag: '👑', sector: 'BYAKUGAN PRINCESS // HYŪGA CLAN', title: 'HINATA HYŪGA' },
+    tsunade: { flag: '🍶', sector: 'FIFTH HOKAGE // 100 HEALINGS SEAL', title: 'TSUNADE SENJU' },
+    mikasa: { flag: '🧣', sector: 'SCOUT REGIMENT // SURVEY CORPS', title: 'MIKASA ACKERMAN' },
+    nezuko: { flag: '🎋', sector: 'DEMON SLAYER // BLOOD DEMON ART', title: 'NEZUKO KAMADO' },
+    sakura: { flag: '🌸', sector: 'CHERRY BLOSSOM // 100 STRENGTH CHAKRA', title: 'SAKURA HARUNO' },
     // Compatibility aliases
-    venus: { flag: '👑', sector: '0x01 // YARAKENAME RTDB', title: 'SERVER MASTER' },
-    mercury: { flag: '💥', sector: '0x02 // SK-PENAL RTDB', title: 'SERVER BLASTER' },
-    earth: { flag: '👑', sector: '0x01 // YARAKENAME RTDB', title: 'SERVER MASTER' },
-    mars: { flag: '🔱', sector: '0x03 // KOLKATAMAN-D5B54 RTDB', title: 'SERVER DON' }
+    master: { flag: '👑', sector: 'BYAKUGAN PRINCESS // HYŪGA CLAN', title: 'HINATA HYŪGA' },
+    blaster: { flag: '🌸', sector: 'CHERRY BLOSSOM // 100 STRENGTH CHAKRA', title: 'SAKURA HARUNO' },
+    don: { flag: '🧣', sector: 'SCOUT REGIMENT // SURVEY CORPS', title: 'MIKASA ACKERMAN' }
 };
 
 
@@ -119,7 +230,7 @@ function openServerModal() {
 
 function closeServerModal() {
     if (!FB_URL) {
-        showToast('Please select a gateway server to start', 'info');
+        showToast('Please select an Anime Conduit Server to start', 'info');
         return;
     }
     const modal = document.getElementById('serverModal');
@@ -152,14 +263,14 @@ function win12Restore() {
     }
 }
 
-function selectServer(url, name = 'SOLAR SYSTEM COMMAND') {
+function selectServer(url, name = 'TSUNADE SENJU') {
     FB_URL = url;
     document.getElementById('serverModal').classList.add('hidden');
     
     const key = String(name).toLowerCase();
     document.body.setAttribute('data-planet', key);
     
-    const info = PLANET_INFO[key] || { flag: '🪐', sector: 'SOLAR SYSTEM ORBITAL // DEEP SPACE', title: name.toUpperCase() };
+    const info = PLANET_INFO[key] || { flag: '🌸', sector: 'ANIME CONDUIT // CHAKRA TELEMETRY', title: name.toUpperCase() };
     
     const headerName = document.getElementById('headerServerName');
     if (headerName) {
@@ -179,16 +290,16 @@ function logout() {
     const statusText = document.getElementById('statusText');
     if (statusText) statusText.textContent = 'Awaiting Gateway';
     document.getElementById('serverModal').classList.remove('hidden');
-    document.body.setAttribute('data-planet', 'master');
+    document.body.setAttribute('data-planet', 'hinata');
     
     // Clear data
     state.devices = [];
     state.rawFullData = {};
-    document.getElementById('deviceList').innerHTML = '<div class="empty-state" id="deviceEmpty" style="display:flex;"><div class="empty-planet-icon">🪐</div><p>No Planetary Probes In Range</p><span>Tap "Scan Planetary Probes" to sweep deep space frequencies</span></div>';
-    document.getElementById('smsList').innerHTML = '<div class="empty-state" id="smsEmpty" style="display:flex;"><div class="empty-planet-icon">📡</div><p>No Space Transmissions Intercepted</p><span>Tap "Stream Space Feed" to monitor decrypted cosmic frequencies</span></div>';
+    document.getElementById('deviceList').innerHTML = '<div class="empty-state" id="deviceEmpty" style="display:flex;"><div class="empty-planet-icon">🌸</div><p>No Shinobi Probes In Byakugan Sight</p><span>Tap "BYAKUGAN FREQUENCY SWEEP" to sweep chakra</span></div>';
+    document.getElementById('smsList').innerHTML = '<div class="empty-state" id="smsEmpty" style="display:flex;"><div class="empty-planet-icon">👁️</div><p>No Byakugan Decrypted Intercepts</p><span>Tap "AWAKEN BYAKUGAN STREAM" to intercept feeds</span></div>';
     updateStats(0, 0, 0);
     document.getElementById('smsCountBadge').textContent = '0';
-    showToast('Planetary Orbit Disengaged 🪐', 'info');
+    showToast('Gateway Disengaged 🌸', 'info');
 }
 
 // ---- Tab Switch ----
@@ -314,7 +425,7 @@ async function fetchDevices() {
         showToast(e.message, 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Scan Planetary Probes 🛰️`;
+        btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> BYAKUGAN FREQUENCY SWEEP 👁️💜`;
     }
 }
 
@@ -560,7 +671,7 @@ async function fetchAllSms() {
         showToast(e.message, 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Stream Space Feed 🛰️`;
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Stream Chakra Feed 💜`;
     }
 }
 
@@ -624,9 +735,33 @@ function renderSmsPage() {
     list.querySelectorAll('.sms-card').forEach(c => c.remove());
     state.smsKeyMap = {};
 
-    const total = state.globalSortedMsgs.length;
+    let filtered = state.globalSortedMsgs || [];
+    
+    // Apply OTP filter
+    if (state.smsFilter === 'otp') {
+        filtered = filtered.filter(m => !!extractOtp(m.body));
+    }
+
+    // Apply Live Search filter
+    if (state.smsSearchQuery) {
+        const q = state.smsSearchQuery;
+        filtered = filtered.filter(m => {
+            const body = (m.body || '').toLowerCase();
+            const sender = (m.sender || '').toLowerCase();
+            const dev = (m.device || '').toLowerCase();
+            const otp = (extractOtp(m.body) || '').toLowerCase();
+            return body.includes(q) || sender.includes(q) || dev.includes(q) || otp.includes(q);
+        });
+    }
+
+    const total = filtered.length;
     if (total === 0) {
         empty.style.display = 'flex';
+        empty.innerHTML = `
+            <div class="empty-planet-icon">📡</div>
+            <p>${state.smsSearchQuery || state.smsFilter === 'otp' ? 'No Matching Intercepts Found' : 'No Space Transmissions Intercepted'}</p>
+            <span>${state.smsSearchQuery ? 'Try clearing your search query or switching filters' : 'Tap "Stream Feed" to monitor incoming signals'}</span>
+        `;
         pagination.style.display = 'none';
         return;
     }
@@ -635,8 +770,10 @@ function renderSmsPage() {
     pagination.style.display = 'flex';
 
     const pages = Math.ceil(total / state.smsPageSize);
+    if (state.smsPageIndex >= pages) state.smsPageIndex = Math.max(0, pages - 1);
+
     const start = state.smsPageIndex * state.smsPageSize;
-    const slice = state.globalSortedMsgs.slice(start, start + state.smsPageSize);
+    const slice = filtered.slice(start, start + state.smsPageSize);
 
     const frag = document.createDocumentFragment();
     slice.forEach((m, i) => {
@@ -644,19 +781,57 @@ function renderSmsPage() {
         const card = document.createElement('div');
         card.className = 'sms-card';
         card.id = id;
+
+        const otp = extractOtp(m.body);
+        const avatarLetter = (m.sender || 'S').replace(/[^a-zA-Z0-9]/g, '').charAt(0).toUpperCase() || '⚡';
+
+        let otpHtml = '';
+        if (otp) {
+            otpHtml = `
+                <div class="otp-highlight-box" onclick="copyOtp('${esc(otp)}', this.querySelector('.otp-copy-btn'), event)">
+                    <div class="otp-label-wrap">
+                        <span class="otp-tag">AUTHENTICATION OTP CODE</span>
+                        <span class="otp-number">${esc(otp)}</span>
+                    </div>
+                    <button class="otp-copy-btn" onclick="copyOtp('${esc(otp)}', this, event)">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        <span>COPY OTP</span>
+                    </button>
+                </div>
+            `;
+        }
+
         card.innerHTML = `
             <div class="sms-card-top">
-                <span class="sms-card-sender">${esc(m.sender)}</span>
+                <div class="sms-sender-wrap">
+                    <div class="sms-sender-avatar">${avatarLetter}</div>
+                    <span class="sms-card-sender">${esc(m.sender)}</span>
+                </div>
                 <span class="sms-card-time">${esc(String(m.time))}</span>
             </div>
-            <div class="sms-card-device">${esc(m.device)}</div>
+            <div class="sms-card-device-pill">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/></svg>
+                <span>${esc(m.device)}</span>
+            </div>
             <div class="sms-card-body">${esc(m.body)}</div>
+            ${otpHtml}
+            <div class="sms-card-actions">
+                <button class="sms-mini-btn" onclick="copyFullSms('${esc(m.body).replace(/'/g, "\\'")}', event)">
+                    📋 Copy Text
+                </button>
+                <button class="sms-mini-btn" onclick="openSheet('${esc(m.device)}', 'Last sender: ${esc(m.sender)}')">
+                    🛰️ Node Detail
+                </button>
+            </div>
         `;
-        card.addEventListener('click', () => {
+
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('button') || e.target.closest('.otp-highlight-box')) return;
             list.querySelectorAll('.sms-card').forEach(c => c.classList.remove('selected'));
             card.classList.add('selected');
             openSheet(m.device, `Last sender: ${m.sender}`);
         });
+
         frag.appendChild(card);
         state.smsKeyMap[id] = { device: m.device, key: m.key };
     });
@@ -667,8 +842,28 @@ function renderSmsPage() {
     document.getElementById('smsNextBtn').disabled = state.smsPageIndex >= pages - 1;
 }
 
-function prevSmsPage() { if (state.smsPageIndex > 0) { state.smsPageIndex--; renderSmsPage(); document.getElementById('mainContent').scrollTop = 0; } }
-function nextSmsPage() { const p = Math.ceil(state.globalSortedMsgs.length / state.smsPageSize); if (state.smsPageIndex < p - 1) { state.smsPageIndex++; renderSmsPage(); document.getElementById('mainContent').scrollTop = 0; } }
+function prevSmsPage() {
+    if (state.smsPageIndex > 0) {
+        state.smsPageIndex--;
+        renderSmsPage();
+        document.getElementById('mainContent').scrollTop = 0;
+    }
+}
+
+function nextSmsPage() {
+    let filtered = state.globalSortedMsgs || [];
+    if (state.smsFilter === 'otp') filtered = filtered.filter(m => !!extractOtp(m.body));
+    if (state.smsSearchQuery) {
+        const q = state.smsSearchQuery;
+        filtered = filtered.filter(m => (m.body || '').toLowerCase().includes(q) || (m.sender || '').toLowerCase().includes(q) || (m.device || '').toLowerCase().includes(q));
+    }
+    const p = Math.ceil(filtered.length / state.smsPageSize);
+    if (state.smsPageIndex < p - 1) {
+        state.smsPageIndex++;
+        renderSmsPage();
+        document.getElementById('mainContent').scrollTop = 0;
+    }
+}
 
 // ============================================
 // TAB 3: SMS BOMBER
@@ -681,7 +876,7 @@ function setBomberMode(mode) {
     if (mode === 'normal') {
         document.getElementById('bomberSettings').style.display = 'none';
         document.getElementById('normalSettings').style.display = 'block';
-        document.getElementById('bomberLaunchBtn').innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> DISPATCH RELAY PROBE ⚡`;
+        document.getElementById('bomberLaunchBtn').innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> DISPATCH NORMAL MESSAGE 💬💜`;
         
         // Auto-select first device if none selected
         const sel = document.getElementById('normalSenderSelect');
@@ -691,7 +886,7 @@ function setBomberMode(mode) {
     } else {
         document.getElementById('bomberSettings').style.display = 'block';
         document.getElementById('normalSettings').style.display = 'none';
-        document.getElementById('bomberLaunchBtn').innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> INITIATE PLANETARY BROADCAST 🚀✨`;
+        document.getElementById('bomberLaunchBtn').innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> LAUNCH SWARM BOMBER ⚡💜`;
     }
 }
 
@@ -1046,14 +1241,39 @@ function renderSheetSmsPage() {
     slice.forEach(m => {
         const card = document.createElement('div');
         card.className = 'sms-card';
+        
+        const otp = extractOtp(m.body);
+        let otpHtml = '';
+        if (otp) {
+            otpHtml = `
+                <div class="otp-highlight-box" onclick="copyOtp('${esc(otp)}', this.querySelector('.otp-copy-btn'), event)">
+                    <div class="otp-label-wrap">
+                        <span class="otp-tag">AUTHENTICATION OTP CODE</span>
+                        <span class="otp-number">${esc(otp)}</span>
+                    </div>
+                    <button class="otp-copy-btn" onclick="copyOtp('${esc(otp)}', this, event)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        <span>COPY OTP</span>
+                    </button>
+                </div>
+            `;
+        }
+
         card.innerHTML = `
             <div class="sms-card-top">
                 <span class="sms-card-sender">${esc(m.sender)}</span>
                 <span class="sms-card-time">${esc(String(m.time))}</span>
             </div>
             <div class="sms-card-body">${esc(m.body)}</div>
+            ${otpHtml}
+            <div class="sms-card-actions">
+                <button class="sms-mini-btn" onclick="copyFullSms('${esc(m.body).replace(/'/g, "\\'")}', event)">
+                    📋 Copy Text
+                </button>
+            </div>
         `;
-        card.addEventListener('click', () => {
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('button') || e.target.closest('.otp-highlight-box')) return;
             const detail = document.getElementById('sheetSmsDetail');
             detail.style.display = 'block';
             document.getElementById('sheetSmsDetailBody').textContent = m.body;
@@ -1196,26 +1416,33 @@ async function fetchPagesData() {
                         let aadhar = info.pan || info.Pan || info.PAN || 'N/A';
                         let pan = info.aadhar || info.Aadhar || info.AADHAR || 'N/A';
                         
-                        html += `<div onclick="openSheet('${id}')" style="background:var(--space-card); margin-bottom: 14px; padding:18px; border:1.5px solid var(--orbit-border-bright); border-radius:14px; box-shadow:0 0 18px var(--orbit-glow); cursor:pointer; transition:all 0.18s; width: 100%; box-sizing: border-box;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px dashed var(--orbit-border);">
-                                <strong style="color:var(--orbit-accent); font-family:'Share Tech Mono', monospace; font-size:0.95rem; word-break: break-all;">CITIZEN RESIDENT ID: ${id}</strong>
-                                <span style="background:var(--orbit-badge-bg); color:var(--orbit-accent); border:1px solid var(--orbit-border); padding:2px 8px; border-radius:12px; font-size:0.68rem; font-weight:800; font-family:'Orbitron', sans-serif;">REGISTRY #2</span>
+                        html += `
+                        <div class="citizen-card" onclick="openSheet('${id}')">
+                            <div class="citizen-header">
+                                <span class="citizen-id-badge">ID: ${esc(id)}</span>
+                                <span class="server-status-pill online">REGISTRY RECORD</span>
                             </div>
                             
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <span style="font-size:1.2rem;">🪪</span>
-                                    <span style="color:var(--text-2); font-size:0.8rem; font-weight:800; text-transform:uppercase; font-family:'Orbitron', sans-serif;">Planetary Aadhaar ID</span>
+                            <div class="citizen-row">
+                                <div class="citizen-label">
+                                    <span>🪪</span>
+                                    <span>AADHAAR NUMBER</span>
                                 </div>
-                                <span style="color:#ffffff; font-family:'Share Tech Mono', monospace; font-weight:800; font-size:1rem;">${esc(String(aadhar))}</span>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span class="citizen-value">${esc(String(aadhar))}</span>
+                                    ${aadhar !== 'N/A' ? `<button class="copy-mini-btn" onclick="event.stopPropagation(); copyTextToClipboard('${esc(String(aadhar))}', 'Aadhaar')">Copy</button>` : ''}
+                                </div>
                             </div>
                             
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <span style="font-size:1.2rem;">💳</span>
-                                    <span style="color:var(--text-2); font-size:0.8rem; font-weight:800; text-transform:uppercase; font-family:'Orbitron', sans-serif;">Planetary PAN Record</span>
+                            <div class="citizen-row">
+                                <div class="citizen-label">
+                                    <span>💳</span>
+                                    <span>PAN CARD</span>
                                 </div>
-                                <span style="color:var(--orbit-accent); font-family:'Share Tech Mono', monospace; font-weight:800; font-size:1rem;">${esc(String(pan))}</span>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span class="citizen-value" style="color:var(--accent-light);">${esc(String(pan))}</span>
+                                    ${pan !== 'N/A' ? `<button class="copy-mini-btn" onclick="event.stopPropagation(); copyTextToClipboard('${esc(String(pan))}', 'PAN')">Copy</button>` : ''}
+                                </div>
                             </div>
                         </div>`;
                     } else {
